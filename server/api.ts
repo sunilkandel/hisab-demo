@@ -166,7 +166,7 @@ route('POST', '/api/auth/logout', async ({ req, db, url }) => {
   return json({ ok: true }, 200, { 'set-cookie': clearCookie(url.protocol === 'https:') })
 }, { public: true })
 
-route('GET', '/api/auth/me', ({ user }) => json({ user }))
+route('GET', '/api/auth/me', ({ user }) => json({ user: user ?? null }), { public: true })
 
 route('POST', '/api/auth/password', async ({ req, db, user }) => {
   const { current = '', next = '' } = await body<{ current?: string; next?: string }>(req)
@@ -352,7 +352,7 @@ route('GET', '/api/clients/:id/months/:period/export', ({ db, user, params }) =>
   db.query('INSERT INTO exports (client_id, period, exported_at, exported_by, file_name) VALUES (?, ?, ?, ?, ?) ON CONFLICT(client_id, period) DO UPDATE SET exported_at = excluded.exported_at, exported_by = excluded.exported_by, file_name = excluded.file_name')
     .run(client.id, period, now(), user.name, name)
   audit(db, { clientId: client.id, period, actor: user.name, action: 'VAT pack exported', detail: name })
-  return new Response(bytes, { headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' } })
+  return new Response(bytes as unknown as BodyInit, { headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' } })
 })
 
 route('GET', '/api/audit', ({ db, url }) => {
@@ -374,7 +374,7 @@ route('GET', '/api/samples/:clientId/:docId', ({ params }) => {
   const d = c?.docs.find((x) => x.id === params.docId)
   if (!c || !d) throw new HttpError(404, 'Sample not found.')
   const r = renderDoc(c.id, d.id)
-  return new Response(sheetToBytes(r.sheet, r.ext), { headers: { 'content-type': r.ext === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'content-disposition': `attachment; filename="${r.name}"` } })
+  return new Response(sheetToBytes(r.sheet, r.ext) as unknown as BodyInit, { headers: { 'content-type': r.ext === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'content-disposition': `attachment; filename="${r.name}"` } })
 })
 
 route('POST', '/api/workspace/reset', async ({ req, db, user }) => {

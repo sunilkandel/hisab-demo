@@ -1,16 +1,18 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
-import { useStore } from '../../state/store'
-import { formatNpr, formatNprShort } from '../../domain/money'
-import { formatBs } from '../../domain/dates'
-import type { CreditCategory } from '../../domain/types'
-import { CATEGORY, Card, CategoryChip, Money, Stat, cx, td, tdNum, th } from '../common'
+import { useCM } from '../../../lib/clientMonth'
+import { Link } from '../../../lib/router'
+import { withPeriod } from '../../../lib/period'
+import { formatNpr, formatNprShort } from '../../../domain/money'
+import { formatBs } from '../../../domain/dates'
+import type { CreditCategory } from '../../../domain/types'
+import { CATEGORY, Card, CategoryChip, Money, Stat, cx, td, tdNum, th } from '../../../ui/common'
 
 const ORDER: CreditCategory[] = ['qr-settlement', 'matched-sales', 'own-transfer', 'loan', 'owner-capital', 'refund', 'other-explained', 'undeclared-sale', 'unexplained']
 
-export function Radar({ clientId }: { clientId: string }) {
-  const { view } = useStore()
-  const v = view(clientId)
-  if (!v.result || !v.summary) return null
+export function Radar() {
+  const { v, period } = useCM()
+  if (!v.summary) return null
+  const clientId = v.client.id
   const s = v.summary
   const txns = new Map(v.result.txns.map((t) => [t.id, t]))
   const amountBy = (c: CreditCategory) => v.credits.filter((x) => x.category === c).reduce((a, x) => a + txns.get(x.txnId)!.credit, 0)
@@ -83,7 +85,7 @@ export function Radar({ clientId }: { clientId: string }) {
           </p>
         </Card>
 
-        <Card title="Largest unexplained deposits" action={<a className="text-xs font-medium text-accent hover:underline" href={`#/client/${clientId}/review`}>Open review queue</a>}>
+        <Card title="Largest unexplained deposits" action={<Link className="text-sm font-medium text-accent hover:underline" href={withPeriod(`/app/clients/${encodeURIComponent(clientId)}/review`, period)}>Open review queue</Link>}>
           {top.length === 0 ? <p className="px-4 py-6 text-sm text-ok">Nothing left to explain.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] text-sm">

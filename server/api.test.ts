@@ -151,3 +151,21 @@ describe('analytics', () => {
     expect(count(after) - count(before)).toBe(1)
   })
 })
+
+describe('SEO files and public session check', () => {
+  test('robots.txt blocks the app and points to the sitemap', async () => {
+    const t = await (await fetch(base + '/robots.txt')).text()
+    expect(t).toContain('Disallow: /app')
+    expect(t).toContain(`Sitemap: ${base}/sitemap.xml`)
+  })
+  test('sitemap lists public pages only', async () => {
+    const x = await (await fetch(base + '/sitemap.xml')).text()
+    expect(x).toContain(`<loc>${base}/faq</loc>`)
+    expect(x).not.toContain('/app')
+  })
+  test('session check answers without an error when signed out', async () => {
+    const r = await fetch(base + '/api/auth/me')
+    expect(r.status).toBe(200)
+    expect((await r.json()).user).toBeNull()
+  })
+})

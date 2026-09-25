@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Check, Undo2 } from 'lucide-react'
-import { useStore } from '../../state/store'
-import { formatBs } from '../../domain/dates'
-import { formatNpr } from '../../domain/money'
-import type { CreditCategory, CreditResult, Txn } from '../../domain/types'
-import { Button, CATEGORY, Card, CategoryChip, Money, cx } from '../common'
+import { useCM } from '../../../lib/clientMonth'
+import { formatBs } from '../../../domain/dates'
+import type { CreditCategory, CreditResult, Txn } from '../../../domain/types'
+import { Button, CATEGORY, Card, CategoryChip, Money, cx } from '../../../ui/common'
 
 const CHOICES: { c: CreditCategory; help: string }[] = [
   { c: 'loan', help: 'Loan disbursed to the business. Keep the loan statement.' },
@@ -15,11 +14,9 @@ const CHOICES: { c: CreditCategory; help: string }[] = [
   { c: 'undeclared-sale', help: 'It was a sale with no bill. Must be added to sales and VAT.' },
 ]
 
-export function Review({ clientId }: { clientId: string }) {
-  const { view } = useStore()
-  const v = view(clientId)
+export function Review() {
+  const { v } = useCM()
   const [showAll, setShowAll] = useState(false)
-  if (!v.result) return null
   const txns = new Map(v.result.txns.map((t) => [t.id, t]))
   const pending = v.credits.filter((c) => c.category === 'unexplained')
   const decided = v.credits.filter((c) => !c.auto)
@@ -30,7 +27,7 @@ export function Review({ clientId }: { clientId: string }) {
       <Card title={`Waiting for your decision (${pending.length})`}>
         {pending.length === 0 ? <p className="px-4 py-6 text-sm text-ok">Queue is empty. Every deposit is explained or classified.</p> : (
           <ul className="divide-y divide-line">
-            {pending.map((c) => <ReviewItem key={c.txnId} clientId={clientId} c={c} t={txns.get(c.txnId)!} />)}
+            {pending.map((c) => <ReviewItem key={c.txnId} c={c} t={txns.get(c.txnId)!} />)}
           </ul>
         )}
       </Card>
@@ -38,7 +35,7 @@ export function Review({ clientId }: { clientId: string }) {
       {decided.length > 0 && (
         <Card title={`Decided by you (${decided.length})`}>
           <ul className="divide-y divide-line">
-            {decided.map((c) => <ReviewItem key={c.txnId} clientId={clientId} c={c} t={txns.get(c.txnId)!} />)}
+            {decided.map((c) => <ReviewItem key={c.txnId} c={c} t={txns.get(c.txnId)!} />)}
           </ul>
         </Card>
       )}
@@ -64,13 +61,13 @@ export function Review({ clientId }: { clientId: string }) {
   )
 }
 
-function ReviewItem({ clientId, c, t }: { clientId: string; c: CreditResult; t: Txn }) {
-  const { decide } = useStore()
+function ReviewItem({ c, t }: { c: CreditResult; t: Txn }) {
+  const { decide, undo, busy } = useCM()
+  const saving = busy === `decide:${t.id}`
   const [choice, setChoice] = useState<CreditCategory | ''>(c.category !== 'unexplained' ? c.category : c.suggestion ?? '')
   const [note, setNote] = useState('')
   const isDecided = !c.auto
   const needsNote = choice === 'other-explained'
-  const label = `${formatBs(t.dateBs)} ${t.narration} NPR ${formatNpr(t.credit)}`
 
   return (
     <li className="px-4 py-3">
@@ -87,10 +84,10 @@ function ReviewItem({ clientId, c, t }: { clientId: string; c: CreditResult; t: 
       </div>
       {isDecided ? (
         <div className="mt-2 flex items-center gap-2">
-          <Button kind="ghost" className="min-h-8 text-xs" onClick={() => decide(clientId, t.id, null, label)}><Undo2 size={14} aria-hidden />Undo</Button>
+          <Button kind="ghost" className="min-h-9 text-[13px]" disabled={saving} onClick={() => undo(t.id)}><Undo2 size={15} aria-hidden />Undo</Button>
         </div>
       ) : (
-        <form className="mt-2 space-y-2" onSubmit={(e) => { e.preventDefault(); if (choice && (!needsNote || note.trim())) decide(clientId, t.id, { category: choice, note: note.trim() }, `${label} → ${CATEGORY[choice].label}`) }}>
+        <form className="mt-2 space-y-2" onSubmit={(e) => { e.preventDefault(); if (choice && (!needsNote || note.trim())) decide(t.id, choice, note.trim()) }}>
           <fieldset>
             <legend className="mb-1 text-xs font-medium text-ink-2">What is this deposit?{c.suggestion && <span className="font-normal text-ink-3"> Hisab suggests: {CATEGORY[c.suggestion].label}</span>}</legend>
             <div className="flex flex-wrap gap-1.5">
@@ -107,9 +104,9 @@ function ReviewItem({ clientId, c, t }: { clientId: string; c: CreditResult; t: 
           <div className="flex flex-wrap items-end gap-2">
             <label className="min-w-[240px] flex-1 text-xs font-medium text-ink-2">
               Note / evidence {needsNote ? <span className="text-bad">(required)</span> : <span className="font-normal text-ink-3">(optional)</span>}
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Loan sanction letter no. 2209 seen" className="mt-1 block min-h-9 w-full rounded-md border border-line px-2.5 text-sm font-normal focus:border-accent" />
+              <input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Loan sanction letter no. 2209 seen" className="field mt-1 font-normal" />
             </label>
-            <Button kind="primary" type="submit" disabled={!choice || (needsNote && !note.trim())}><Check size={16} aria-hidden />Confirm</Button>
+            <Button kind="primary" type="submit" disabled={saving || !choice || (needsNote && !note.trim())}><Check size={16} aria-hidden />{saving ? 'Saving…' : 'Confirm'}</Button>
           </div>
         </form>
       )}

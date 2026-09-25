@@ -1,17 +1,14 @@
-import { useMemo, useState } from 'react'
-import { useStore } from '../../state/store'
-import { exclusionsOf } from '../../domain/pipeline'
-import { formatBs } from '../../domain/dates'
-import type { IssueSeverity } from '../../domain/types'
-import { Card, CategoryChip, Money, Pager, SeverityIcon, cx, td, tdNum, th } from '../common'
+import { useState } from 'react'
+import { useCM } from '../../../lib/clientMonth'
+import { formatBs } from '../../../domain/dates'
+import type { IssueSeverity } from '../../../domain/types'
+import { Card, CategoryChip, Money, Pager, SeverityIcon, cx, td, tdNum, th } from '../../../ui/common'
 
 const PAGE = 50
 
-export function IssuesTab({ clientId }: { clientId: string }) {
-  const { view } = useStore()
-  const v = view(clientId)
+export function IssuesTab() {
+  const { v } = useCM()
   const [filter, setFilter] = useState<IssueSeverity | 'all'>('all')
-  if (!v.result) return null
   const docName = (id?: string) => v.result!.files.find((f) => f.docId === id)?.name ?? v.client.docs.find((d) => d.id === id)?.label
   const issues = v.result.issues.filter((i) => filter === 'all' || i.severity === filter)
   const count = (s: IssueSeverity) => v.result!.issues.filter((i) => i.severity === s).length
@@ -45,13 +42,10 @@ export function IssuesTab({ clientId }: { clientId: string }) {
   )
 }
 
-export function BankTab({ clientId }: { clientId: string }) {
-  const { view } = useStore()
-  const v = view(clientId)
+export function BankTab() {
+  const { v, ex } = useCM()
   const [page, setPage] = useState(0)
   const [onlyCredits, setOnlyCredits] = useState(false)
-  const ex = useMemo(() => (v.result ? exclusionsOf(v.result) : null), [v.result])
-  if (!v.result || !ex) return null
   const byTxn = new Map(v.credits.map((c) => [c.txnId, c]))
   const rows = v.result.txns.filter((t) => !onlyCredits || t.credit > 0)
   const pages = Math.ceil(rows.length / PAGE)
@@ -68,7 +62,7 @@ export function BankTab({ clientId }: { clientId: string }) {
           <tbody>
             {rows.slice(page * PAGE, page * PAGE + PAGE).map((t) => {
               const c = byTxn.get(t.id)
-              const out = ex.excludedTxns.has(t.id)
+              const out = ex.txns.has(t.id)
               return (
                 <tr key={t.id} className={cx('border-t border-line', out && 'bg-slate-50 text-ink-3 line-through decoration-slate-300')}>
                   <td className={cx(td, 'num whitespace-nowrap text-xs')}>{formatBs(t.dateBs)}</td>
@@ -89,12 +83,9 @@ export function BankTab({ clientId }: { clientId: string }) {
   )
 }
 
-export function RegisterTab({ clientId, kind }: { clientId: string; kind: 'sales' | 'purchase' }) {
-  const { view } = useStore()
-  const v = view(clientId)
+export function RegisterTab({ kind }: { kind: 'sales' | 'purchase' }) {
+  const { v, ex } = useCM()
   const [page, setPage] = useState(0)
-  const ex = useMemo(() => (v.result ? exclusionsOf(v.result) : null), [v.result])
-  if (!v.result || !ex) return null
   const rows = v.result.invoices.filter((i) => i.kind === kind)
   const flagged = new Map<string, string>()
   for (const i of v.result.issues) if (i.refId && (i.severity === 'error' || i.severity === 'warning')) flagged.set(i.refId, i.message)
@@ -112,7 +103,7 @@ export function RegisterTab({ clientId, kind }: { clientId: string; kind: 'sales
           </tr></thead>
           <tbody>
             {rows.slice(page * PAGE, page * PAGE + PAGE).map((i) => {
-              const out = ex.excludedInvoices.has(i.id)
+              const out = ex.invoices.has(i.id)
               const flag = flagged.get(i.id)
               return (
                 <tr key={i.id} className={cx('border-t border-line', out && 'bg-slate-50 text-ink-3')}>
