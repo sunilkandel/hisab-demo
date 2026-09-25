@@ -1,8 +1,15 @@
-# Hisab: VAT pack & mismatch radar (demo)
+# Hisab: VAT pack & mismatch radar
 
-A working demo of **Hisab**, a tool for Nepali accountants and CA firms. It turns each client's month-end VAT work into a short review, and flags deposits that aren't explained by declared sales **before** a tax-office cross-check does.
+A full-stack web app for Nepali accountants and CA firms. You upload a client's bank statements and sales and purchase registers exactly as exported. Hisab then:
 
-> **All data is fictional.** The firm, clients, banks, PANs and amounts are generated. Files are processed entirely in your browser; nothing is uploaded anywhere.
+- reads them, whatever software made them,
+- checks them for errors,
+- explains every deposit against declared sales (the **mismatch radar**),
+- produces a VAT-ready pack.
+
+The accountant makes the judgement calls; Hisab does the typing.
+
+> **Demo:** the only thing that's made up is the data. Upload made-up files and everything (parsing, checks, reconciliation, VAT, exports) runs for real. Never upload real client data to the demo.
 
 ## Run it
 
@@ -10,52 +17,86 @@ Requires [Bun](https://bun.sh).
 
 ```bash
 bun install
-bun run dev        # http://localhost:5173
-bun test           # engine tests (parsers, validation, reconciliation, VAT)
-bun run build      # typecheck + production build into dist/
+bun run dev        # API on :3001 + app on http://localhost:5173
 ```
 
-## What the demo shows
+Sign in with **`demo` / `Hisab@2083`**, then change the password in Settings.
 
-Six fictional clients for **Bhadra 2083**. Each one demonstrates a real-world situation:
+| Command | What it does |
+|---|---|
+| `bun run dev` | Development: API server (auto-restart) + Vite with hot reload |
+| `bun test` | 35 tests: engine (parsing, validation, reconciliation, VAT) and API (auth, security, full client flow, SEO files) |
+| `bun run build` | Typecheck + production build into `dist/` |
+| `bun run start` | Production: one server on http://localhost:3000 serving the app and API |
 
-| Client | Billing tool | Scenario |
-|---|---|---|
-| Ram Pharmacy | BUSY | NPR 8.7 lakh more deposits than sales: loan + owner capital (suggested), NPR 3.7 lakh unexplained |
-| Himali Kitchen | Manual Excel (Nepali headers, VAT-inclusive totals) | Duplicate bills, QR money on a day with no bills, online-platform payout |
-| Lalitpur Hardware | Tigg | Clean month: everything reconciles |
-| Everest Wholesale | Tally (Excel serial dates, no payment-mode column) | Wrong VAT on 2 bills, purchases missing supplier PAN, supplier refund |
-| Kathmandu Mobile Hub | BUSY, two banks | Own-account transfer; bank export with 3 repeated rows |
-| Bagmati Fresh Mart | Manual Excel | Documents still arriving; the sales book contains last month's bills |
+Data lives in `data/hisab.db` (SQLite, git-ignored). Delete it to start fresh; the six demo clients are re-seeded on the next start.
 
-The sample files are real `.xlsx` / `.csv` bytes in each tool's messy layout: title rows, BS/AD/Devanagari/Excel-serial dates, `1,23,456.00` amounts, totals rows. Use **View raw file** or **Download** to see exactly what the engine has to parse. You can also **upload your own** statement or register; common header names are auto-mapped.
+## Try the whole flow
 
-## How it works
+1. **Sign in**, then open **Sample files** and download a set (for example Ram Pharmacy's three files).
+2. **Add client**: name, 9-digit PAN, billing software, bank account.
+3. Make sure the **VAT month** picker says **Bhadra 2083** (the samples are for that month), then **upload** the files (drag and drop works).
+4. **Process documents** to see each step and what it found.
+5. **Mismatch radar**, then the **Review queue**: classify unexplained deposits.
+6. **VAT pack**: the checklist unlocks the Excel download; **Client report** prints to PDF.
+7. **Audit log** shows everything you did.
 
-```
-raw files ─► 1 store (SHA-256) ─► 2 detect format ─► 3 parse & normalise (BS+AD dates, integer paisa)
-          ─► 4 validate (13% VAT, duplicates, month, supplier PAN)
-          ─► 5 reconcile deposits: own transfers → QR batches → bank transfers → cash deposits → suggestions → unexplained
-          ─► 6 accountant review (audit-logged) ─► 7 VAT pack (.xlsx) + client report (print to PDF)
-```
+Edit the sample files in Excel (add a deposit, delete a bill, break a VAT amount) and upload again to see how Hisab reacts.
 
-Reconciliation is **rules only, with no AI on the numbers**, so every match carries a human-readable reason.
+## What's inside
+
+**Public site**
+- Landing page with clear calls to action, plus FAQ, Privacy policy, Terms, Security and Sign-in pages, and a custom 404 page that returns a real 404 status.
+- SEO: per-page titles and descriptions, canonical URLs, Open Graph and Twitter image, JSON-LD structured data (`SoftwareApplication`, `FAQPage`), plus `robots.txt` and `sitemap.xml` generated for the actual domain.
+- Favicon (SVG), app icons, web manifest.
+
+**App**
+- Clients dashboard with search, status filters, deadline countdown and progress.
+- Add, edit and remove clients, with inline validation and type-to-confirm delete.
+- VAT-month picker (BS calendar) that lives in the URL, so links and the back button keep it.
+- Per client and month: document uploads, processing log, mismatch radar, review queue, issues, bank, sales and purchases tables, VAT pack and a printable client report.
+- Sample files library, audit log, and Settings (password change, analytics, workspace reset).
+
+**Backend** (Bun + SQLite)
+- JSON API: clients, per-month files, processing, decisions, exports, audit, analytics.
+- Security:
+  - argon2id password hashes.
+  - HttpOnly `SameSite=Strict` session cookies (only a hash of the token is stored).
+  - Login rate limiting.
+  - Same-origin check on writes.
+  - Strict CSP and other security headers.
+  - Upload type and size limits.
+- Privacy-friendly analytics: first-party, no cookies, no IP addresses, honours Do Not Track and Global Privacy Control.
+
+**Design and usability**
+- Inter for text, with tabular figures so amounts line up; JetBrains Mono for PANs and references. Fonts are self-hosted.
+- Every action shows its status (progress steps, toasts, loading skeletons).
+- Error prevention: validation, confirm dialogs, and an export checklist.
+- Choose-don't-type controls (radio cards, month picker, fill-in demo login), and undo for review decisions.
+- Keyboard and screen-reader support: skip links, labels, `aria-live` regions, visible focus, reduced-motion support. Layout tested at 390 px (phone) and 1440 px.
 
 ## Code map
 
 | Path | What |
 |---|---|
-| `src/domain/seed.ts` | Fictional clients, the month's "truth", and writers for each raw file format |
-| `src/domain/parse.ts` | Format profiles, header detection, bank + register parsers |
-| `src/domain/validate.ts` | Checks that make a VAT return wrong |
-| `src/domain/reconcile.ts` | The mismatch radar |
-| `src/domain/pipeline.ts` | Runs the steps and records what each did; VAT computation |
-| `src/domain/export.ts` | VAT pack workbook |
-| `src/domain/engine.test.ts` | Tests, run on real generated file bytes |
-| `src/state/store.tsx` | App state (localStorage in the demo; Postgres + RLS in production) |
-| `src/ui/` | Screens: dashboard, client workspace tabs, how-it-works, audit log, client report |
+| `server/index.ts` | HTTP server: API, static files, SPA routes with real 404s, security headers, robots/sitemap |
+| `server/api.ts` | API routes and validation |
+| `server/auth.ts` | Passwords, sessions, rate limiting |
+| `server/db.ts` · `server/seed.ts` | SQLite schema; demo seeding |
+| `src/domain/` | The engine, shared by server and browser: dates (BS/AD, VAT periods), money (paisa), parse, validate, reconcile, pipeline, export, view |
+| `src/lib/` | Router, API client, auth, month (period) state, SEO, analytics, toasts, client-month data hook |
+| `src/pages/public/` | Landing, FAQ, Privacy/Terms/Security, Login, 404 |
+| `src/pages/app/` | Layout, dashboard, client form, client workspace and tabs, samples, audit, settings, report |
+| `src/ui/common.tsx` | Shared components (buttons, fields, dialogs, pills, tables) |
 | `design-system/hisab/MASTER.md` | Colours, type and spacing rules |
 
-## Demo vs production
+## Before real customers
 
-The demo keeps everything in the browser. Production adds login with MFA, per-firm Postgres with row-level security, encrypted backups, a parser (with golden-file tests) for each real bank and wallet, and PDF statement support. See `~/million-dollar-plan.md` for the plan.
+Get a lawyer to review the Privacy policy and Terms, and replace the placeholder contact address `privacy@hisab.example`. Then add:
+
+- multi-factor sign-in and staff roles,
+- per-firm data isolation (Postgres with row-level security) and encrypted backups,
+- a data-processing agreement,
+- parsers with golden-file tests for each real bank and wallet format.
+
+See `~/million-dollar-plan.md`.
