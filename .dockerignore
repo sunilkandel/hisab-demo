@@ -1,0 +1,14 @@
+# Keep the image small and never ship local data or secrets.
+node_modules
+dist
+data
+*.db
+*.db-*
+.git
+.github
+.env*
+*.log
+.DS_Store
+design-system
+README.md
+CLAUDE.md

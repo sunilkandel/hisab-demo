@@ -133,6 +133,9 @@ export async function runAndStore(db: DB, client: Client, period: string, actor:
   return result
 }
 
+/** Behind a hosting proxy (Render, Nginx…) the app sees plain HTTP; the proxy says the visitor used HTTPS. */
+const isHttps = (req: Request, url: URL) => url.protocol === 'https:' || req.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https'
+
 // ---------------- router ----------------
 type Handler = (ctx: { req: Request; db: DB; user: User; params: Record<string, string>; url: URL }) => Promise<Response> | Response
 const routes: { method: string; pattern: RegExp; keys: string[]; handler: Handler; public?: boolean }[] = []
@@ -158,12 +161,12 @@ route('POST', '/api/auth/login', async ({ req, db, url }) => {
   clearAttempts(key)
   const token = await createSession(db, user.id, req.headers.get('user-agent'))
   audit(db, { actor: user.name, action: 'Signed in', detail: user.username })
-  return json({ user }, 200, { 'set-cookie': sessionCookie(token, url.protocol === 'https:') })
+  return json({ user }, 200, { 'set-cookie': sessionCookie(token, isHttps(req, url)) })
 }, { public: true })
 
 route('POST', '/api/auth/logout', async ({ req, db, url }) => {
   await destroySession(db, req)
-  return json({ ok: true }, 200, { 'set-cookie': clearCookie(url.protocol === 'https:') })
+  return json({ ok: true }, 200, { 'set-cookie': clearCookie(isHttps(req, url)) })
 }, { public: true })
 
 route('GET', '/api/auth/me', ({ user }) => json({ user: user ?? null }), { public: true })

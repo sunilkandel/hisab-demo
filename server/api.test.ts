@@ -43,6 +43,10 @@ describe('auth', () => {
 })
 
 describe('security', () => {
+  test('cookie is marked Secure when a proxy reports HTTPS', async () => {
+    const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-proto': 'https' }, body: JSON.stringify({ username: DEFAULT_USER.username, password: DEFAULT_USER.password }) })
+    expect(r.headers.get('set-cookie')).toContain('Secure')
+  })
   test('cross-site POST is blocked', async () => {
     const r = await api('/api/clients', { method: 'POST', body: '{}', headers: { origin: 'https://evil.example' } })
     expect(r.status).toBe(403)

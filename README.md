@@ -29,6 +29,15 @@ Sign in with **`demo` / `Hisab@2083`**, then change the password in Settings.
 | `bun run build` | Typecheck + production build into `dist/` |
 | `bun run start` | Production: one server on http://localhost:3000 serving the app and API |
 
+### Docker
+
+```bash
+docker build -t hisab .
+docker run -p 3000:3000 -v hisab-data:/app/data hisab   # open http://localhost:3000
+```
+
+The image is two-stage (build, then a slim runtime), runs as a non-root user, has a health check on `/api/health`, and keeps SQLite in `/app/data`. Mount a volume there, or data resets when the container restarts. Behind a hosting proxy (Render, Nginx…) the proxy's `X-Forwarded-Proto: https` header marks the session cookie `Secure`.
+
 Data lives in `data/hisab.db` (SQLite, git-ignored). Delete it to start fresh; the six demo clients are re-seeded on the next start.
 
 ## Try the whole flow
