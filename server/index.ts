@@ -21,8 +21,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   'content-security-policy': [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob:",
     "connect-src 'self'",
     "frame-ancestors 'none'",
@@ -37,6 +37,20 @@ function withHeaders(res: Response, extra: Record<string, string> = {}): Respons
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
 }
 
+// Built from the request's own origin, so URLs are right on any domain.
+function robots(origin: string) {
+  return ['User-agent: *', 'Allow: /', 'Disallow: /app', 'Disallow: /api/', '', `Sitemap: ${origin}/sitemap.xml`, ''].join('\n')
+}
+function sitemap(origin: string) {
+  const pages: [string, string, string][] = [['/', 'weekly', '1.0'], ['/faq', 'monthly', '0.8'], ['/security', 'monthly', '0.6'], ['/login', 'yearly', '0.5'], ['/privacy', 'yearly', '0.3'], ['/terms', 'yearly', '0.3']]
+  const lastmod = '2026-09-26'
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map(([p, f, pr]) => `  <url><loc>${origin}${p}</loc><lastmod>${lastmod}</lastmod><changefreq>${f}</changefreq><priority>${pr}</priority></url>`).join('\n')}
+</urlset>
+`
+}
+
 export async function createServer(opts: { port: number; dist?: string; dbPath?: string }) {
   const db = openDb(opts.dbPath)
   await ensureDefaultUser(db)
@@ -48,6 +62,11 @@ export async function createServer(opts: { port: number; dist?: string; dbPath?:
     maxRequestBodySize: 6 * 1024 * 1024,
     async fetch(req, srv) {
       const url = new URL(req.url)
+      // Public origin for robots/sitemap (behind a dev proxy or reverse proxy, use the forwarded host; affects only these two files).
+      const fwd = req.headers.get('x-forwarded-host')
+      const origin = fwd ? `${req.headers.get('x-forwarded-proto') ?? 'http'}://${fwd.split(',')[0].trim()}` : url.origin
+      if (url.pathname === '/robots.txt') return withHeaders(new Response(robots(origin), { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } }))
+      if (url.pathname === '/sitemap.xml') return withHeaders(new Response(sitemap(origin), { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } }))
       if (url.pathname.startsWith('/api/')) {
         const headers = new Headers(req.headers)
         headers.set('x-hisab-ip', srv.requestIP(req)?.address ?? 'local') // set by us, never trusted from the client
