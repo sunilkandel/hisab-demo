@@ -15,6 +15,7 @@ import { ClientForm } from './pages/app/ClientForm'
 import { Samples } from './pages/app/Samples'
 import { AuditLog } from './pages/app/AuditLog'
 import { Settings } from './pages/app/Settings'
+import { Help } from './pages/app/Help'
 import { Report } from './pages/app/Report'
 
 export default function App() {
@@ -50,6 +51,7 @@ function appPage(path: string) {
   if (path === '/app/samples') return <Samples />
   if (path === '/app/audit') return <AuditLog />
   if (path === '/app/settings') return <Settings />
+  if (path === '/app/help') return <Help />
   return <InAppNotFound />
 }
 

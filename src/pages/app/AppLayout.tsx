@@ -20,6 +20,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     { href: '/app/samples', label: 'Sample files', icon: FolderDown, active: path === '/app/samples' },
     { href: '/app/audit', label: 'Audit log', icon: ScrollText, active: path === '/app/audit' },
     { href: '/app/settings', label: 'Settings', icon: Cog, active: path === '/app/settings' },
+    { href: '/app/help', label: 'Help & FAQ', icon: HelpCircle, active: path === '/app/help' },
   ]
 
   async function signOut() {
@@ -38,7 +39,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <n.icon size={18} aria-hidden />{n.label}
           </Link>
         ))}
-        <Link href="/faq" className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-300 hover:bg-white/6 hover:text-white"><HelpCircle size={18} aria-hidden />Help & FAQ</Link>
       </nav>
       <div className="border-t border-white/10 p-4">
         <div className="flex items-center gap-3">
