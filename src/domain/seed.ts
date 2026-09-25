@@ -6,7 +6,7 @@
  * (bank XLSX with title rows, CSV with BS dates and 1,23,456.00 amounts, Nepali headers, Excel serial dates,
  * totals rows, duplicated rows). The pipeline then has to parse those files back, exactly as it would real ones.
  */
-import { bsToAd, daysInBsMonth, addDays, adToBs, adDate } from './dates'
+import { addDays, adToBs, adDate, periodRange, type Period } from './dates'
 import { vatOn, formatNpr } from './money'
 import type { Client, FormatId, PaymentMode, Sheet } from './types'
 
@@ -16,16 +16,10 @@ export const DEMO_FIRM = {
   user: 'Sita Gurung (demo)',
 }
 
-export const DEMO_MONTH = { year: 2083, month: 5 } // Bhadra 2083 (≈ 17 Aug – 16 Sep 2026)
+/** Sample files are generated for this month (Bhadra 2083 ≈ 17 Aug – 16 Sep 2026). */
+export const DEMO_MONTH: Period = { year: 2083, month: 5 }
 
-export function monthRangeAd(): { start: string; end: string; days: number } {
-  const days = daysInBsMonth(DEMO_MONTH.year, DEMO_MONTH.month)
-  return {
-    start: bsToAd(DEMO_MONTH.year, DEMO_MONTH.month, 1),
-    end: bsToAd(DEMO_MONTH.year, DEMO_MONTH.month, days),
-    days,
-  }
-}
+export const monthRangeAd = () => periodRange(DEMO_MONTH)
 
 // ---------- deterministic randomness ----------
 function mulberry32(seed: number) {
@@ -125,6 +119,8 @@ export const CLIENTS: Client[] = [
     ],
   },
 ]
+
+for (const c of CLIENTS) c.demo = true
 
 export const clientById = (id: string) => CLIENTS.find((c) => c.id === id)
 
@@ -397,7 +393,7 @@ export function renderDoc(clientId: string, docId: string): { sheet: Sheet; ext:
   const t = truthFor(clientId)
   const { start, end } = monthRangeAd()
   const bsLabel = `Bhadra 2083`
-  const fmt: FormatId = doc.format
+  const fmt: FormatId = doc.format!
   const slug = client.name.replace(/[^A-Za-z]+/g, '_').replace(/_+$/, '')
 
   if (doc.kind === 'bank') {

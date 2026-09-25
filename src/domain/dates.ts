@@ -97,3 +97,37 @@ export function parseDateCell(v: unknown, calendar: 'BS' | 'AD'): ParsedDate | n
 export function todayAd(): string {
   return isoLocal(new Date())
 }
+
+// ---------- VAT periods (one BS month) ----------
+export interface Period { year: number; month: number } // month 1-12 (BS)
+
+export const periodKey = (p: Period) => `${p.year}-${pad(p.month)}`
+
+export function parsePeriod(key: string | null | undefined): Period | null {
+  const m = String(key ?? '').match(/^(\d{4})-(\d{2})$/)
+  if (!m) return null
+  const p = { year: +m[1], month: +m[2] }
+  return p.month >= 1 && p.month <= 12 && p.year >= 2070 && p.year <= 2100 ? p : null
+}
+
+export const periodLabel = (p: Period) => `${BS_MONTHS[p.month - 1]} ${p.year}`
+
+export function periodRange(p: Period): { start: string; end: string; days: number } {
+  const days = daysInBsMonth(p.year, p.month)
+  return { start: bsToAd(p.year, p.month, 1), end: bsToAd(p.year, p.month, days), days }
+}
+
+export const nextPeriod = (p: Period): Period => (p.month === 12 ? { year: p.year + 1, month: 1 } : { year: p.year, month: p.month + 1 })
+export const prevPeriod = (p: Period): Period => (p.month === 1 ? { year: p.year - 1, month: 12 } : { year: p.year, month: p.month - 1 })
+
+/** VAT return for a month is due by the 25th of the following BS month. */
+export function vatDueDate(p: Period): { bs: string; ad: string } {
+  const n = nextPeriod(p)
+  return { bs: `${n.year}-${pad(n.month)}-25`, ad: bsToAd(n.year, n.month, 25) }
+}
+
+/** The month whose VAT return is currently being prepared (the previous BS month). */
+export function currentFilingPeriod(): Period {
+  const [y, m] = adToBs(todayAd()).split('-').map(Number)
+  return prevPeriod({ year: y, month: m })
+}

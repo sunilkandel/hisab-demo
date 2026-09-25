@@ -11,7 +11,7 @@ export interface ExpectedDoc {
   kind: DocKind
   label: string // e.g. "Sagarmatha Demo Bank · A/C ...0041"
   account?: string // bank account number for bank docs
-  format: FormatId
+  format?: FormatId // known layout for demo samples; real uploads are auto-detected
 }
 
 export interface Client {
@@ -21,7 +21,8 @@ export interface Client {
   sector: string
   billingTool: BillingTool
   docs: ExpectedDoc[]
-  story: string // what the demo scenario shows
+  story: string // what the demo scenario shows (empty for real clients)
+  demo?: boolean // one of the generated demo clients (sample files available)
 }
 
 export type FormatId =
@@ -158,6 +159,7 @@ export interface ProcessedFile {
 
 export interface MonthResult {
   clientId: string
+  period: string // BS month key, e.g. "2083-05"
   processedAt: string
   files: ProcessedFile[]
   txns: Txn[]

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { parseMoney, formatNpr, splitInclusive, vatOn } from './money'
 import { parseDateCell, bsToAd, adToBs } from './dates'
-import { CLIENTS, renderDoc } from './seed'
+import { CLIENTS, DEMO_MONTH, renderDoc } from './seed'
 import { sheetToBytes } from './files'
 import { runPipeline } from './pipeline'
 import { summarize, applyDecisions } from './reconcile'
@@ -56,7 +56,7 @@ async function run(clientId: string): Promise<MonthResult> {
     const r = renderDoc(client.id, d.id)
     return { docId: d.id, name: r.name, bytes: sheetToBytes(r.sheet, r.ext), source: 'sample' }
   })
-  const res = await runPipeline(client, files)
+  const res = await runPipeline(client, files, DEMO_MONTH)
   cache.set(clientId, res)
   return res
 }

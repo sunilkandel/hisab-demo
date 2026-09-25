@@ -5,7 +5,7 @@
 import { bytesToSheet, sha256Hex } from './files'
 import { detectFormat, parseBank, parseRegister } from './parse'
 import { reconcile } from './reconcile'
-import { monthRangeAd } from './seed'
+import { periodKey, periodRange, type Period } from './dates'
 import { validate } from './validate'
 import { formatNpr } from './money'
 import type { Client, CreditResult, Invoice, Issue, MonthResult, ProcessedFile, RawFile, StepLog, Txn, VatSummary } from './types'
@@ -29,8 +29,8 @@ export function computeVat(invoices: Invoice[], excluded: Set<string>, disallowe
   }
 }
 
-export async function runPipeline(client: Client, files: RawFile[]): Promise<MonthResult> {
-  const { start, end } = monthRangeAd()
+export async function runPipeline(client: Client, files: RawFile[], period: Period): Promise<MonthResult> {
+  const { start, end } = periodRange(period)
   const steps: StepLog[] = []
   const issues: Issue[] = []
   const processed: ProcessedFile[] = []
@@ -130,6 +130,7 @@ export async function runPipeline(client: Client, files: RawFile[]): Promise<Mon
 
   return {
     clientId: client.id,
+    period: periodKey(period),
     processedAt: new Date().toISOString(),
     files: processed,
     txns,
@@ -151,6 +152,7 @@ function summarizeSkips(skips: { reason: string }[]): string {
 
 /** Re-derive exclusions from a stored result (validation is deterministic). */
 export function exclusionsOf(r: MonthResult) {
-  const { start, end } = monthRangeAd()
+  const [y, m] = r.period.split('-').map(Number)
+  const { start, end } = periodRange({ year: y, month: m })
   return validate(r.txns, r.invoices, { startAd: start, endAd: end })
 }
